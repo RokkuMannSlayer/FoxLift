@@ -1,0 +1,12 @@
+ID: 1 | Fecha: 13/09/2026 | Hora: 22:33:27 | Distancia: 6,37 cm | Estado: OBJETO DETECTADO
+ID: 2 | Fecha: 13/09/2026 | Hora: 22:33:32 | Distancia: 9,00 cm | Estado: OBJETO DETECTADO
+ID: 3 | Fecha: 13/09/2026 | Hora: 22:33:33 | Distancia: 18,69 cm | Estado: OBJETO DETECTADO
+ID: 4 | Fecha: 13/09/2026 | Hora: 22:33:34 | Distancia: 11,36 cm | Estado: OBJETO DETECTADO
+ID: 5 | Fecha: 13/09/2026 | Hora: 22:33:34 | Distancia: 7,54 cm | Estado: OBJETO DETECTADO
+ID: 6 | Fecha: 13/09/2026 | Hora: 22:33:34 | Distancia: 7,73 cm | Estado: OBJETO DETECTADO
+ID: 7 | Fecha: 13/09/2026 | Hora: 22:33:35 | Distancia: 8,36 cm | Estado: OBJETO DETECTADO
+ID: 8 | Fecha: 13/09/2026 | Hora: 22:33:35 | Distancia: 6,16 cm | Estado: OBJETO DETECTADO
+ID: 9 | Fecha: 13/09/2026 | Hora: 22:33:35 | Distancia: 18,37 cm | Estado: OBJETO DETECTADO
+ID: 10 | Fecha: 13/09/2026 | Hora: 22:33:35 | Distancia: 19,71 cm | Estado: OBJETO DETECTADO
+ID: 11 | Fecha: 13/09/2026 | Hora: 22:33:36 | Distancia: 16,34 cm | Estado: OBJETO DETECTADO
+ID: 12 | Fecha: 13/09/2026 | Hora: 22:33:36 | Distancia: 16,08 cm | Estado: OBJETO DETECTADO

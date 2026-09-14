@@ -1,16 +1,17 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- */
-
 package com.mycompany.foxlift;
 
-/**
- *
- * @author facun
- */
-public class FoxLift {
+public class Foxlift {
 
     public static void main(String[] args) {
-        System.out.println("Hello World!");
+
+        javax.swing.SwingUtilities.invokeLater(() -> {
+
+            InterfazServidor servidor = new InterfazServidor();
+
+            servidor.setVisible(true);
+
+            // Iniciar el servidor TCP en el puerto 5000
+            servidor.iniciarServidor();
+        });
     }
 }
