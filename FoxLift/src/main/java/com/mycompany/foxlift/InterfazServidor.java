@@ -1,42 +1,26 @@
 package com.mycompany.foxlift;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextArea;
-import javax.swing.ListSelectionModel;
-import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
-
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.GridLayout;
-
+import java.awt.*;
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
-
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import java.text.DecimalFormat;
-
-/**
- * Interfaz gráfica y servidor TCP de FoxLift.
- *
- * El servidor recibe las mediciones enviadas por
- * el simulador del sensor mediante Socket TCP.
- */
 public class InterfazServidor extends JFrame {
 
-    // Puerto TCP utilizado por FoxLift
+    // ==========================================
+    // CONFIGURACIÓN
+    // ==========================================
+
     private static final int PUERTO = 5000;
+
+    private static final double LIMITE_DETECCION = 20.0;
+
+    // ==========================================
+    // SERVIDOR
+    // ==========================================
 
     private ServerSocket servidorSocket;
 
@@ -44,15 +28,17 @@ public class InterfazServidor extends JFrame {
 
     private Thread hiloServidor;
 
-    private SimuladorSensor simulador;
+    // ==========================================
+    // OBJETOS
+    // ==========================================
 
-    private RegistroObjeto registro;
+    private final SimuladorSensor simulador;
 
-    private JTable tablaObjetos;
+    private final RegistroObjeto registro;
 
-    private DefaultTableModel modeloTabla;
-
-    private JTextArea areaLog;
+    // ==========================================
+    // COMPONENTES DE INTERFAZ
+    // ==========================================
 
     private JLabel lblEstadoServidor;
 
@@ -62,9 +48,27 @@ public class InterfazServidor extends JFrame {
 
     private JLabel lblTotal;
 
-    private int totalObjetos;
+    private JTable tablaObjetos;
 
-    private final DecimalFormat formatoDistancia = new DecimalFormat("0.00");
+    private DefaultTableModel modeloTabla;
+
+    private JTextArea areaLog;
+
+    private JButton btnSimular;
+
+    private JButton btnLimpiar;
+
+    // ==========================================
+    // CONTADORES
+    // ==========================================
+
+    private int totalObjetos = 0;
+
+    private boolean modoEscapeNotificado = false;
+
+    // ==========================================
+    // CONSTRUCTOR
+    // ==========================================
 
     public InterfazServidor() {
 
@@ -72,19 +76,18 @@ public class InterfazServidor extends JFrame {
 
         registro = new RegistroObjeto();
 
-        totalObjetos = 0;
-
         configurarVentana();
 
         crearInterfaz();
     }
 
-    /**
-     * Configura la ventana.
-     */
+    // ==========================================
+    // CONFIGURAR VENTANA
+    // ==========================================
+
     private void configurarVentana() {
 
-        setTitle("FoxLift - Servidor TCP");
+        setTitle("FoxLift - Servidor");
 
         setSize(900, 650);
 
@@ -92,92 +95,50 @@ public class InterfazServidor extends JFrame {
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        setResizable(false);
+        setLayout(new BorderLayout(10, 10));
     }
 
-    /**
-     * Construye la interfaz gráfica.
-     */
+    // ==========================================
+    // CREAR INTERFAZ
+    // ==========================================
+
     private void crearInterfaz() {
 
-        setLayout(new BorderLayout(10, 10));
+        // --------------------------------------
+        // PANEL SUPERIOR
+        // --------------------------------------
 
-        /*
-         * ==========================================
-         * PANEL SUPERIOR
-         * ==========================================
-         */
+        JPanel panelSuperior = new JPanel(new GridLayout(2, 2, 10, 10));
 
-        JPanel panelSuperior = new JPanel(new BorderLayout());
+        panelSuperior.setBorder(
+                BorderFactory.createEmptyBorder(10, 10, 5, 10));
 
-        panelSuperior.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10));
+        lblEstadoServidor = new JLabel("Servidor: INICIANDO...");
 
-        JLabel titulo = new JLabel("FoxLift - Servidor de Detección", SwingConstants.CENTER);
+        lblEstadoSensor = new JLabel("Sensor: ESPERANDO");
 
-        titulo.setFont(new Font("Arial", Font.BOLD, 24));
+        lblDistancia = new JLabel("Distancia: -- cm");
 
-        panelSuperior.add(titulo, BorderLayout.CENTER);
+        lblTotal = new JLabel("Objetos registrados: 0");
 
-        /*
-         * Estado del servidor
-         */
+        panelSuperior.add(lblEstadoServidor);
 
-        lblEstadoServidor = new JLabel("SERVIDOR: INICIANDO...", SwingConstants.CENTER);
+        panelSuperior.add(lblEstadoSensor);
 
-        lblEstadoServidor.setFont(new Font("Arial", Font.BOLD, 14));
+        panelSuperior.add(lblDistancia);
 
-        panelSuperior.add(lblEstadoServidor, BorderLayout.SOUTH);
+        panelSuperior.add(lblTotal);
 
         add(panelSuperior, BorderLayout.NORTH);
 
-        /*
-         * ==========================================
-         * PANEL CENTRAL
-         * ==========================================
-         */
+        // --------------------------------------
+        // TABLA
+        // --------------------------------------
 
-        JPanel panelCentral = new JPanel(new BorderLayout(10, 10));
-
-        panelCentral.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-
-        /*
-         * ==========================================
-         * INFORMACIÓN
-         * ==========================================
-         */
-
-        JPanel panelInformacion = new JPanel(new GridLayout(1, 3, 10, 10));
-
-        lblEstadoSensor = new JLabel("SENSOR: ESPERANDO", SwingConstants.CENTER);
-
-        lblEstadoSensor.setFont(new Font("Arial", Font.BOLD, 15));
-
-        lblDistancia = new JLabel("Distancia: -- cm",  SwingConstants.CENTER);
-
-        lblDistancia.setFont(new Font("Arial", Font.BOLD, 15));
-
-        lblTotal = new JLabel("Objetos detectados: 0", SwingConstants.CENTER);
-
-        lblTotal.setFont(new Font("Arial", Font.BOLD, 15));
-
-        panelInformacion.add(lblEstadoSensor);
-
-        panelInformacion.add(lblDistancia);
-
-        panelInformacion.add(lblTotal);
-
-        panelCentral.add(panelInformacion, BorderLayout.NORTH);
-
-        /*
-         * ==========================================
-         * TABLA
-         * ==========================================
-         */
-
-        modeloTabla = new DefaultTableModel(new Object[]{"ID", "Fecha", "Hora", "Distancia", "Estado"}, 0) {
+        modeloTabla = new DefaultTableModel(new Object[]{"ID", "Fecha", "Hora", "Distancia", "Estado" }, 0) {
 
                     @Override
-                    public boolean isCellEditable(int fila, int columna) {
+                    public boolean isCellEditable(int row, int column) {
 
                         return false;
                     }
@@ -185,275 +146,346 @@ public class InterfazServidor extends JFrame {
 
         tablaObjetos = new JTable(modeloTabla);
 
-        tablaObjetos.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-
-        tablaObjetos.setRowHeight(25);
-
-        tablaObjetos.setFont(new Font("Arial", Font.PLAIN, 13));
-
-        tablaObjetos.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
-
         JScrollPane scrollTabla = new JScrollPane(tablaObjetos);
 
-        panelCentral.add(scrollTabla, BorderLayout.CENTER);
+        add(scrollTabla, BorderLayout.CENTER);
 
-        add(panelCentral, BorderLayout.CENTER);
+        // --------------------------------------
+        // BOTONES
+        // --------------------------------------
 
-        /*
-         * ==========================================
-         * PANEL INFERIOR
-         * ==========================================
-         */
+        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
 
-        JPanel panelInferior = new JPanel(new BorderLayout(10, 10));
+        btnSimular = new JButton("Simular detección");
 
-        panelInferior.setBorder(BorderFactory.createEmptyBorder(5, 10, 10, 10));
-
-        /*
-         * BOTONES
-         */
-
-        JPanel panelBotones = new JPanel();
-
-        JButton btnSimular = new JButton("Simular detección");
-
-        btnSimular.setFont(new Font("Arial", Font.BOLD, 14));
-
-        btnSimular.setPreferredSize(new Dimension(200, 40));
-
-        JButton btnLimpiar = new JButton("Limpiar tabla");
-
-        btnLimpiar.setFont(new Font("Arial", Font.BOLD, 14));
-
-        btnLimpiar.setPreferredSize(new Dimension(160, 40));
+        btnLimpiar = new JButton("Limpiar tabla");
 
         panelBotones.add(btnSimular);
 
         panelBotones.add(btnLimpiar);
 
-        panelInferior.add(panelBotones, BorderLayout.NORTH);
+        // --------------------------------------
+        // LOG
+        // --------------------------------------
 
-        /*
-         * LOG
-         */
-
-        areaLog = new JTextArea(6, 20);
+        areaLog = new JTextArea(8, 50);
 
         areaLog.setEditable(false);
 
-        areaLog.setFont(new Font("Monospaced",Font.PLAIN, 12));
+        areaLog.setLineWrap(true);
 
-        areaLog.setText("FoxLift iniciado.\n" + "Esperando conexión TCP...\n");
+        areaLog.setWrapStyleWord(true);
 
-        JScrollPane scrollLog =new JScrollPane(areaLog);
+        JScrollPane scrollLog = new JScrollPane(areaLog);
+
+        JPanel panelInferior = new JPanel(new BorderLayout());
+
+        panelInferior.add(panelBotones, BorderLayout.NORTH);
 
         panelInferior.add(scrollLog, BorderLayout.CENTER);
 
+        panelInferior.setBorder(BorderFactory.createTitledBorder("Registro del servidor"));
+
         add(panelInferior, BorderLayout.SOUTH);
 
-        /*
-         * ==========================================
-         * EVENTOS
-         * ==========================================
-         */
+        // --------------------------------------
+        // BOTÓN SIMULAR
+        // --------------------------------------
 
         btnSimular.addActionListener(e -> {
 
-            // Crear un hilo para no congelar la interfaz
-            Thread hilo = new Thread(() -> {
+            Thread hiloSimulacion = new Thread(() -> {
 
-                        simulador.enviarMedicion();
+                simulador.enviarMedicion();
+            });
 
-                    });
-
-            hilo.start();
+            hiloSimulacion.start();
         });
+
+        // --------------------------------------
+        // BOTÓN LIMPIAR
+        // --------------------------------------
 
         btnLimpiar.addActionListener(e -> {
 
             modeloTabla.setRowCount(0);
 
-            totalObjetos = 0;
-
-            lblTotal.setText("Objetos detectados: 0");
-
-            agregarLog("Tabla limpiada.");
+            agregarLog("Tabla de registros limpiada.");
         });
     }
 
-    /**
-     * Inicia el servidor TCP en el puerto 5000.
-     */
+    // ==========================================
+    // INICIAR SERVIDOR
+    // ==========================================
+
     public void iniciarServidor() {
 
         hiloServidor = new Thread(() -> {
 
+            try {
+
+                servidorSocket = new ServerSocket(PUERTO);
+
+                SwingUtilities.invokeLater(() -> {
+
+                    lblEstadoServidor.setText("Servidor: ACTIVO - Puerto " + PUERTO);
+                    
+                });
+
+                agregarLog("Servidor iniciado correctamente.");
+
+                agregarLog("Esperando conexión del simulador...");
+
+                while (!Thread.currentThread().isInterrupted()) {
+
                     try {
 
-                        servidorSocket = new ServerSocket(PUERTO);
+                        clienteSocket = servidorSocket.accept();
+
+                        agregarLog("Simulador conectado: " + clienteSocket.getInetAddress().getHostAddress());
 
                         SwingUtilities.invokeLater(() -> {
 
-                            lblEstadoServidor.setText("SERVIDOR: ESCUCHANDO PUERTO " + PUERTO);
-
+                            lblEstadoSensor.setText("Sensor: CONECTADO");
+                            
                         });
 
-                        agregarLog("Servidor TCP iniciado.");
+                        atenderCliente(clienteSocket);
 
-                        agregarLog("Puerto: " + PUERTO);
+                    } catch (Exception e) {
 
-                        /*
-                         * El servidor permanece esperando
-                         * conexiones del simulador.
-                         */
+                        if (servidorSocket != null && !servidorSocket.isClosed()) {
 
-                        while (true) {
-
-                            clienteSocket = servidorSocket.accept();
-
-                            agregarLog("Simulador conectado: " + clienteSocket.getInetAddress().getHostAddress());
-
-                            atenderCliente(clienteSocket);
+                            agregarLog("Error aceptando conexión: " + e.getMessage());
                         }
-
-                    } catch (IOException e) {
-
-                        agregarLog(
-                                "Error del servidor: "
-                                + e.getMessage()
-                        );
                     }
+                }
 
-                });
+                } catch (Exception e) {
+
+                    agregarLog("ERROR iniciando servidor: " + e.getMessage());
+
+                    SwingUtilities.invokeLater(() -> {
+
+                        lblEstadoServidor.setText("Servidor: ERROR");
+                    });
+                }
+        });
 
         hiloServidor.start();
     }
 
-    /**
-     * Atiende una conexión proveniente del simulador.
-     */
+    // ==========================================
+    // ATENDER CLIENTE
+    // ==========================================
+
     private void atenderCliente(Socket socket) {
 
         try (BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
             String mensaje;
 
-            while ((mensaje = entrada.readLine()) != null) {
+            while ((mensaje = entrada.readLine())!= null) {
+
+                agregarLog("Mensaje recibido: "+ mensaje);
 
                 procesarMedicion(mensaje);
             }
 
-        } catch (IOException e) {
+        } catch (Exception e) {
 
-            agregarLog("Conexión finalizada.");
-        }
-    }
+            agregarLog("Error con el cliente: " + e.getMessage());
 
-    /**
-     * Procesa una medición recibida.
-     *
-     * El simulador envía:
-     *
-     * DISTANCIA:12.50
-     */
-    private void procesarMedicion(String mensaje) {
+        } finally {
 
-        try {
+            try {
 
-            if (!mensaje.startsWith("DISTANCIA:")) {
+                socket.close();
 
-                agregarLog("Mensaje desconocido: " + mensaje);
-
-                return;
+            } catch (Exception ignored) {
             }
-
-            String textoDistancia = mensaje.substring("DISTANCIA:".length());
-
-            double distancia = Double.parseDouble(textoDistancia);
 
             SwingUtilities.invokeLater(() -> {
 
-                lblDistancia.setText("Distancia: " + formatoDistancia.format(distancia) + " cm");
-
+                lblEstadoSensor.setText("Sensor: ESPERANDO");
             });
 
-            agregarLog("Medición recibida: " + formatoDistancia.format(distancia) + " cm" );
+            agregarLog("Simulador desconectado.");
+        }
+    }
 
-            /*
-             * ==================================
-             * DETECCIÓN
-             * ==================================
-             */
+    // ==========================================
+    // PROCESAR MEDICIÓN
+    // ==========================================
+
+    private void procesarMedicion(String mensaje) {
+
+        if (mensaje == null) {
+
+            return;
+        }
+
+        if (!mensaje.startsWith("DISTANCIA:")) {
+
+            agregarLog("Mensaje desconocido recibido.");
+
+            return;
+        }
+
+        try {
+
+            String textoDistancia = mensaje.substring("DISTANCIA:".length());
+
+            agregarLog("Texto recibido: [" + textoDistancia + "]");
+
+            double distancia = Double.parseDouble(textoDistancia);
+
+            agregarLog("Distancia convertida correctamente: " + distancia);
+
+            SwingUtilities.invokeLater(() -> {
+
+                lblDistancia.setText(String.format("Distancia: %.2f cm", distancia));
+            });
+
+            agregarLog(String.format("Medición recibida: %.2f cm", distancia));
+
+            // ----------------------------------
+            // DETECCIÓN
+            // ----------------------------------
 
             if (sensorHayObjeto(distancia)) {
 
                 agregarLog("DISTANCIA DENTRO DEL RANGO DE DETECCIÓN.");
 
-                RegistroObjeto.Registro objeto = registro.guardarObjeto(distancia);
-
-                totalObjetos++;
-
-                SwingUtilities.invokeLater(() -> {
-
-                    lblEstadoSensor.setText("SENSOR: OBJETO DETECTADO");
-
-                    lblTotal.setText("Objetos detectados: " + totalObjetos);
-
-                    modeloTabla.addRow(new Object[]{objeto.getId(), objeto.getFecha(), objeto.getHora(), formatoDistancia.format(objeto.getDistancia()) + " cm", objeto.getEstado()});
-                });
-
-                agregarLog("OBJETO DETECTADO.");
-
-                agregarLog("ID asignado: " + objeto.getId());
-
-                agregarLog("Guardado en estomago.txt.");
+                registrarObjeto(distancia);
 
             } else {
-
-                agregarLog("DISTANCIA FUERA DEL RANGO DE DETECCIÓN.");
-
-                SwingUtilities.invokeLater(() -> {
-
-                    lblEstadoSensor.setText("SENSOR: SIN OBJETO");
-                });
 
                 agregarLog("No se detectó ningún objeto.");
             }
 
-        } catch (
-                NumberFormatException e
-        ) {
+        } catch (NumberFormatException e) {
 
-            agregarLog("Distancia inválida: " + mensaje);
+            agregarLog("ERROR: No se pudo convertir la distancia.");
+
+            agregarLog("Mensaje recibido: [" + mensaje + "]");
+
+            agregarLog("Causa: " + e.getMessage());
+
+        } catch (Exception e) {
+
+            agregarLog("ERROR procesando medición: "+ e.getMessage());
         }
     }
 
-    /**
-     * Determina si hay un objeto.
-     */
+    // ==========================================
+    // COMPROBAR DETECCIÓN
+    // ==========================================
+
     private boolean sensorHayObjeto(double distancia) {
 
-        final double LIMITE_DETECCION = 20.0;
-        
         return distancia <= LIMITE_DETECCION;
     }
 
-    /**
-     * Agrega mensajes al área de log.
-     */
+    // ==========================================
+    // REGISTRAR OBJETO
+    // ==========================================
+
+    private void registrarObjeto(double distancia) {
+
+        try {
+
+            agregarLog("OBJETO DETECTADO.");
+
+            // Guardar objeto
+            int id = registro.guardarObjeto(distancia);
+
+            // Aumentar contador
+            totalObjetos++;
+
+            agregarLog("ID asignado: " + id);
+
+            agregarLog( "Guardado en estomago.txt.");
+
+            // Actualizar contador
+            SwingUtilities.invokeLater(() -> {
+
+                lblTotal.setText("Objetos registrados: "+ totalObjetos);
+            });
+
+            // Agregar a la tabla
+            agregarFila(id, distancia);
+
+            // ----------------------------------
+            // TERCER REGISTRO
+            // ----------------------------------
+
+            if (totalObjetos == 3 && !modoEscapeNotificado) {
+
+                modoEscapeNotificado = true;
+
+                mostrarNotificacionEscape();
+            }
+
+        } catch (Exception e) {
+
+            agregarLog("ERROR guardando objeto: " + e.getMessage());
+        }
+    }
+
+    // ==========================================
+    // AGREGAR FILA
+    // ==========================================
+
+    private void agregarFila(int id, double distancia) {
+
+        String fecha = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
+        String hora = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
+
+        SwingUtilities.invokeLater(() -> {
+
+            modeloTabla.addRow(new Object[]{
+                
+                id, fecha, hora, String.format("%.2f cm", distancia), "OBJETO DETECTADO"
+            });
+        });
+    }
+
+    // ==========================================
+    // NOTIFICACIÓN MODO ESCAPE
+    // ==========================================
+
+    private void mostrarNotificacionEscape() {
+
+        SwingUtilities.invokeLater(() -> {
+
+            JOptionPane.showMessageDialog(this, "¡ATENCIÓN!\n\n" + "Se han registrado 3 objetos.\n\n" + "ACTIVAR MODO ESCAPE.", "MODO ESCAPE", JOptionPane.WARNING_MESSAGE);
+        });
+
+        agregarLog("⚠ ALERTA: 3 objetos registrados.");
+
+        agregarLog("⚠ ACTIVAR MODO ESCAPE.");
+    }
+
+    // ==========================================
+    // AGREGAR LOG
+    // ==========================================
+
     private void agregarLog(String mensaje) {
 
         SwingUtilities.invokeLater(() -> {
 
-            areaLog.append(mensaje + "\n");
+            areaLog.append(mensaje + System.lineSeparator());
 
             areaLog.setCaretPosition(areaLog.getDocument().getLength());
         });
     }
 
-    /**
-     * Cierra correctamente el servidor.
-     */
+    // ==========================================
+    // CERRAR SERVIDOR
+    // ==========================================
+
     @Override
     public void dispose() {
 
@@ -464,14 +496,22 @@ public class InterfazServidor extends JFrame {
                 clienteSocket.close();
             }
 
+        } catch (Exception ignored) {
+        }
+
+        try {
+
             if (servidorSocket != null && !servidorSocket.isClosed()) {
 
                 servidorSocket.close();
             }
 
-        } catch (IOException e) {
+        } catch (Exception ignored) {
+        }
 
-            System.err.println("Error cerrando sockets: " + e.getMessage());
+        if (hiloServidor != null) {
+
+            hiloServidor.interrupt();
         }
 
         super.dispose();

@@ -1,16 +1,17 @@
 package com.mycompany.foxlift;
 
+import javax.swing.SwingUtilities;
+
 public class Foxlift {
 
     public static void main(String[] args) {
 
-        javax.swing.SwingUtilities.invokeLater(() -> {
+        SwingUtilities.invokeLater(() -> {
 
             InterfazServidor servidor = new InterfazServidor();
 
             servidor.setVisible(true);
 
-            // Iniciar el servidor TCP en el puerto 5000
             servidor.iniciarServidor();
         });
     }
