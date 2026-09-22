@@ -37,7 +37,7 @@ public class InterfazServidor extends JFrame {
     private final RegistroObjeto registro;
 
     // ==========================================
-    // COMPONENTES DE INTERFAZ
+    // COMPONENTES
     // ==========================================
 
     private JLabel lblEstadoServidor;
@@ -59,12 +59,10 @@ public class InterfazServidor extends JFrame {
     private JButton btnLimpiar;
 
     // ==========================================
-    // CONTADORES
+    // ESTADO DEL MODO ESCAPE
     // ==========================================
 
-    private int totalObjetos = 0;
-
-    private boolean modoEscapeNotificado = false;
+    private boolean modoEscapeActivo = false;
 
     // ==========================================
     // CONSTRUCTOR
@@ -79,6 +77,8 @@ public class InterfazServidor extends JFrame {
         configurarVentana();
 
         crearInterfaz();
+
+        actualizarCantidadDesdeArchivo();
     }
 
     // ==========================================
@@ -110,8 +110,7 @@ public class InterfazServidor extends JFrame {
 
         JPanel panelSuperior = new JPanel(new GridLayout(2, 2, 10, 10));
 
-        panelSuperior.setBorder(
-                BorderFactory.createEmptyBorder(10, 10, 5, 10));
+        panelSuperior.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10));
 
         lblEstadoServidor = new JLabel("Servidor: INICIANDO...");
 
@@ -119,7 +118,7 @@ public class InterfazServidor extends JFrame {
 
         lblDistancia = new JLabel("Distancia: -- cm");
 
-        lblTotal = new JLabel("Objetos registrados: 0");
+        lblTotal = new JLabel("Registros en estómago: 0");
 
         panelSuperior.add(lblEstadoServidor);
 
@@ -135,14 +134,14 @@ public class InterfazServidor extends JFrame {
         // TABLA
         // --------------------------------------
 
-        modeloTabla = new DefaultTableModel(new Object[]{"ID", "Fecha", "Hora", "Distancia", "Estado" }, 0) {
+        modeloTabla = new DefaultTableModel(new Object[]{"ID", "Fecha", "Hora", "Distancia", "Estado"}, 0) {
 
-                    @Override
-                    public boolean isCellEditable(int row, int column) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
 
-                        return false;
-                    }
-                };
+                return false;
+            }
+        };
 
         tablaObjetos = new JTable(modeloTabla);
 
@@ -210,7 +209,9 @@ public class InterfazServidor extends JFrame {
 
             modeloTabla.setRowCount(0);
 
-            agregarLog("Tabla de registros limpiada.");
+            agregarLog("Tabla visual limpiada.");
+
+            agregarLog("El archivo estomago.txt NO fue eliminado.");
         });
     }
 
@@ -229,7 +230,6 @@ public class InterfazServidor extends JFrame {
                 SwingUtilities.invokeLater(() -> {
 
                     lblEstadoServidor.setText("Servidor: ACTIVO - Puerto " + PUERTO);
-                    
                 });
 
                 agregarLog("Servidor iniciado correctamente.");
@@ -247,7 +247,6 @@ public class InterfazServidor extends JFrame {
                         SwingUtilities.invokeLater(() -> {
 
                             lblEstadoSensor.setText("Sensor: CONECTADO");
-                            
                         });
 
                         atenderCliente(clienteSocket);
@@ -270,7 +269,7 @@ public class InterfazServidor extends JFrame {
                         lblEstadoServidor.setText("Servidor: ERROR");
                     });
                 }
-        });
+        }, "Servidor-TCP");
 
         hiloServidor.start();
     }
@@ -287,7 +286,7 @@ public class InterfazServidor extends JFrame {
 
             while ((mensaje = entrada.readLine())!= null) {
 
-                agregarLog("Mensaje recibido: "+ mensaje);
+                agregarLog("Mensaje recibido: " + mensaje);
 
                 procesarMedicion(mensaje);
             }
@@ -318,7 +317,9 @@ public class InterfazServidor extends JFrame {
     // PROCESAR MEDICIÓN
     // ==========================================
 
-    private void procesarMedicion(String mensaje) {
+    private void procesarMedicion(
+            String mensaje
+    ) {
 
         if (mensaje == null) {
 
@@ -340,8 +341,6 @@ public class InterfazServidor extends JFrame {
 
             double distancia = Double.parseDouble(textoDistancia);
 
-            agregarLog("Distancia convertida correctamente: " + distancia);
-
             SwingUtilities.invokeLater(() -> {
 
                 lblDistancia.setText(String.format("Distancia: %.2f cm", distancia));
@@ -350,7 +349,7 @@ public class InterfazServidor extends JFrame {
             agregarLog(String.format("Medición recibida: %.2f cm", distancia));
 
             // ----------------------------------
-            // DETECCIÓN
+            // COMPROBAR DETECCIÓN
             // ----------------------------------
 
             if (sensorHayObjeto(distancia)) {
@@ -369,20 +368,16 @@ public class InterfazServidor extends JFrame {
             agregarLog("ERROR: No se pudo convertir la distancia.");
 
             agregarLog("Mensaje recibido: [" + mensaje + "]");
-
-            agregarLog("Causa: " + e.getMessage());
-
-        } catch (Exception e) {
-
-            agregarLog("ERROR procesando medición: "+ e.getMessage());
         }
     }
 
     // ==========================================
-    // COMPROBAR DETECCIÓN
+    // DETECCIÓN
     // ==========================================
 
-    private boolean sensorHayObjeto(double distancia) {
+    private boolean sensorHayObjeto(
+            double distancia
+    ) {
 
         return distancia <= LIMITE_DETECCION;
     }
@@ -397,40 +392,43 @@ public class InterfazServidor extends JFrame {
 
             agregarLog("OBJETO DETECTADO.");
 
-            // Guardar objeto
+            /*
+             * RegistroObjeto se encarga de
+             * proteger la escritura del archivo.
+             */
             int id = registro.guardarObjeto(distancia);
-
-            // Aumentar contador
-            totalObjetos++;
 
             agregarLog("ID asignado: " + id);
 
-            agregarLog( "Guardado en estomago.txt.");
+            agregarLog("Captura guardada en estomago.txt.");
 
-            // Actualizar contador
-            SwingUtilities.invokeLater(() -> {
-
-                lblTotal.setText("Objetos registrados: "+ totalObjetos);
-            });
-
-            // Agregar a la tabla
             agregarFila(id, distancia);
 
-            // ----------------------------------
-            // TERCER REGISTRO
-            // ----------------------------------
-
-            if (totalObjetos == 3 && !modoEscapeNotificado) {
-
-                modoEscapeNotificado = true;
-
-                mostrarNotificacionEscape();
-            }
+            actualizarCantidadDesdeArchivo();
 
         } catch (Exception e) {
 
             agregarLog("ERROR guardando objeto: " + e.getMessage());
         }
+    }
+
+    // ==========================================
+    // ACTUALIZAR CANTIDAD DESDE ARCHIVO
+    // ==========================================
+
+    private void actualizarCantidadDesdeArchivo() {
+
+        Thread hiloConsulta = new Thread(() -> {
+
+            int cantidad = registro.contarRegistros();
+
+            SwingUtilities.invokeLater(() -> {
+
+                lblTotal.setText("Registros en estómago: " + cantidad);
+            });
+        }, "Consulta-Estomago");
+
+        hiloConsulta.start();
     }
 
     // ==========================================
@@ -445,41 +443,57 @@ public class InterfazServidor extends JFrame {
 
         SwingUtilities.invokeLater(() -> {
 
-            modeloTabla.addRow(new Object[]{
-                
-                id, fecha, hora, String.format("%.2f cm", distancia), "OBJETO DETECTADO"
-            });
+            modeloTabla.addRow(new Object[]{id, fecha, hora, String.format("%.2f cm",distancia),"OBJETO DETECTADO"});
         });
     }
 
     // ==========================================
-    // NOTIFICACIÓN MODO ESCAPE
+    // MODO ESCAPE
     // ==========================================
 
-    private void mostrarNotificacionEscape() {
+    /**
+     * Este método es llamado por el Auditor.
+     *
+     * La interfaz NO decide cuándo hay 3 registros.
+     * El Auditor consulta estomago.txt y comunica
+     * que puede activarse el Modo Escape.
+     */
+    public void modoEscape() {
+
+        if (modoEscapeActivo) {
+
+            return;
+        }
+
+        modoEscapeActivo = true;
+
+        agregarLog("================================");
+
+        agregarLog("AUDITOR: Se encontraron 3 registros válidos.");
+
+        agregarLog("AUDITOR: PUEDE ACTIVARSE EL MODO ESCAPE.");
+
+        agregarLog("================================");
 
         SwingUtilities.invokeLater(() -> {
 
-            JOptionPane.showMessageDialog(this, "¡ATENCIÓN!\n\n" + "Se han registrado 3 objetos.\n\n" + "ACTIVAR MODO ESCAPE.", "MODO ESCAPE", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "¡ATENCIÓN!\n\n" + "El Auditor detectó 3 registros " + "válidos en estomago.txt.\n\n" + "PUEDE ACTIVARSE EL MODO ESCAPE.", "MODO ESCAPE", JOptionPane.WARNING_MESSAGE);
         });
-
-        agregarLog("⚠ ALERTA: 3 objetos registrados.");
-
-        agregarLog("⚠ ACTIVAR MODO ESCAPE.");
     }
 
     // ==========================================
-    // AGREGAR LOG
+    // LOG
     // ==========================================
 
-    private void agregarLog(String mensaje) {
+    public void agregarLog(String mensaje) {
 
         SwingUtilities.invokeLater(() -> {
 
-            areaLog.append(mensaje + System.lineSeparator());
+                    areaLog.append(mensaje + System.lineSeparator());
 
-            areaLog.setCaretPosition(areaLog.getDocument().getLength());
-        });
+                    areaLog.setCaretPosition(areaLog.getDocument().getLength());
+                }
+        );
     }
 
     // ==========================================

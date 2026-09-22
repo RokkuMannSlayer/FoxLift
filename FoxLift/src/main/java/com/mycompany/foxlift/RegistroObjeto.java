@@ -11,11 +11,17 @@ import java.time.format.DateTimeFormatter;
 
 public class RegistroObjeto {
 
+    /**
+     * Archivo persistente que representa
+     * el "estómago" de la Orquita.
+     */
     private static final String ARCHIVO = "estomago.txt";
 
     /**
-     * Guarda un objeto detectado y devuelve
-     * el ID asignado.
+     * Registra una captura en estomago.txt.
+     *
+     * El método es synchronized porque el archivo
+     * es un recurso compartido entre diferentes hilos.
      */
     public synchronized int guardarObjeto(double distancia) throws Exception {
 
@@ -29,10 +35,19 @@ public class RegistroObjeto {
 
         DateTimeFormatter formatoHora = DateTimeFormatter.ofPattern("HH:mm:ss");
 
-        String fechaTexto = fecha.format(formatoFecha);
+        String fechaTexto =
+                fecha.format(
+                        formatoFecha
+                );
 
         String horaTexto = hora.format(formatoHora);
 
+        /*
+         * SECCIÓN CRÍTICA:
+         *
+         * La escritura sobre estomago.txt
+         * está protegida por synchronized.
+         */
         try (FileWriter fw = new FileWriter(ARCHIVO, true); PrintWriter pw = new PrintWriter(fw)) {
 
             pw.printf("ID: %d | Fecha: %s | Hora: %s | Distancia: %.2f cm | Estado: OBJETO DETECTADO%n", id, fechaTexto, horaTexto, distancia);
@@ -42,8 +57,52 @@ public class RegistroObjeto {
     }
 
     /**
-     * Busca el ID más alto del archivo
-     * y devuelve el siguiente.
+     * Cuenta los registros válidos de captura
+     * existentes actualmente en estomago.txt.
+     *
+     * También está synchronized porque el Auditor
+     * puede consultar mientras otro hilo escribe.
+     */
+    public synchronized int contarRegistros() {
+
+        File archivo = new File(ARCHIVO);
+
+        if (!archivo.exists()) {
+
+            return 0;
+        }
+
+        int cantidad = 0;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
+
+            String linea;
+
+            while ((linea = br.readLine()) != null) {
+
+                /*
+                 * Consideramos válido un registro
+                 * que contenga estos elementos.
+                 */
+                if (linea.startsWith("ID:") && linea.contains("Distancia:") && linea.contains("Estado: OBJETO DETECTADO")) {
+
+                    cantidad++;
+                }
+            }
+
+        } catch (Exception e) {
+
+            System.out.println("Error consultando " + ARCHIVO + ": " + e.getMessage());
+        }
+
+        return cantidad;
+    }
+
+    /**
+     * Obtiene el siguiente ID.
+     *
+     * Este método es llamado desde métodos
+     * synchronized de esta misma clase.
      */
     private int obtenerSiguienteId() {
 
@@ -60,13 +119,13 @@ public class RegistroObjeto {
 
             String linea;
 
-            while ((linea = br.readLine()) != null) {
+            while ((linea = br.readLine())!= null) {
 
                 if (linea.startsWith("ID:")) {
 
-                    String parteId = linea.substring(3).split("\\|")[0].trim();
-
                     try {
+
+                        String parteId = linea.substring(3).split("\\|")[0].trim();
 
                         int id = Integer.parseInt(parteId);
 
@@ -82,7 +141,7 @@ public class RegistroObjeto {
 
         } catch (Exception e) {
 
-            System.out.println("Error leyendo " + ARCHIVO + ": " + e.getMessage());
+            System.out.println("Error obteniendo ID: " + e.getMessage());
         }
 
         return maxId + 1;

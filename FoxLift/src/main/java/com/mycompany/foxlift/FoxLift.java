@@ -8,11 +8,18 @@ public class Foxlift {
 
         SwingUtilities.invokeLater(() -> {
 
-            InterfazServidor servidor = new InterfazServidor();
+            InterfazServidor servidor =
+                    new InterfazServidor();
 
             servidor.setVisible(true);
 
+            // Iniciar servidor TCP
             servidor.iniciarServidor();
+
+            // Iniciar Auditor de manera independiente
+            Auditor auditor =   new Auditor(servidor);
+
+            auditor.iniciar();
         });
     }
 }
