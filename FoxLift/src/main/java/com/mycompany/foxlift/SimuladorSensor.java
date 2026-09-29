@@ -33,13 +33,11 @@ public class SimuladorSensor {
 
         if (random.nextDouble() < 0.60) {
 
-            return 5.0
-                    + random.nextDouble() * 15.0;
+            return 5.0 + random.nextDouble() * 15.0;
 
         } else {
 
-            return 21.0
-                    + random.nextDouble() * 79.0;
+            return 21.0 + random.nextDouble() * 79.0;
         }
     }
 
@@ -55,28 +53,15 @@ public class SimuladorSensor {
 
         if (random.nextDouble() < 0.60) {
 
-            double diametro =
-                    14.0
-                    + random.nextDouble() * 10.0;
+            double diametro = 14.0 + random.nextDouble() * 10.0;
 
-            double peso =
-                    3.0
-                    + random.nextDouble() * 5.0;
+            double peso = 3.0 + random.nextDouble() * 5.0;
 
-            double redondez =
-                    0.92
-                    + random.nextDouble() * 0.08;
+            double redondez = 0.92 + random.nextDouble() * 0.08;
 
-            double densidad =
-                    0.90
-                    + random.nextDouble() * 0.10;
+            double densidad = 0.90 + random.nextDouble() * 0.10;
 
-            return new CaracteristicasObjeto(
-                    diametro,
-                    peso,
-                    redondez,
-                    densidad
-            );
+            return new CaracteristicasObjeto(diametro, peso, redondez, densidad);
 
         } else {
 
@@ -85,28 +70,15 @@ public class SimuladorSensor {
              * clasificado como canica.
              */
 
-            double diametro =
-                    5.0
-                    + random.nextDouble() * 25.0;
+            double diametro = 5.0 + random.nextDouble() * 25.0;
 
-            double peso =
-                    1.0
-                    + random.nextDouble() * 18.0;
+            double peso = 1.0 + random.nextDouble() * 18.0;
 
-            double redondez =
-                    0.40
-                    + random.nextDouble() * 0.45;
+            double redondez = 0.40 + random.nextDouble() * 0.45;
 
-            double densidad =
-                    0.20
-                    + random.nextDouble() * 0.65;
+            double densidad = 0.20 + random.nextDouble() * 0.65;
 
-            return new CaracteristicasObjeto(
-                    diametro,
-                    peso,
-                    redondez,
-                    densidad
-            );
+            return new CaracteristicasObjeto(diametro, peso, redondez, densidad);
         }
     }
 
@@ -115,29 +87,15 @@ public class SimuladorSensor {
      */
     public void enviarMedicion() {
 
-        double distancia =
-                medirDistancia();
+        double distancia = medirDistancia();
 
-        CaracteristicasObjeto objeto =
-                generarCaracteristicasObjeto();
+        CaracteristicasObjeto objeto = generarCaracteristicasObjeto();
 
-        try (
-                Socket socket =
-                        new Socket(HOST, PUERTO);
-
-                PrintWriter salida =
-                        new PrintWriter(
-                                socket.getOutputStream(),
-                                true
-                        )
-        ) {
+        try (Socket socket =new Socket(HOST, PUERTO);PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)) {
 
             String mensaje = String.format(Locale.US, "DISTANCIA:%.2f;" + "DIAMETRO:%.2f;" + "PESO:%.2f;" + "REDONDEZ:%.3f;" + "DENSIDAD:%.3f", distancia, objeto.getDiametro(), objeto.getPeso(), objeto.getRedondez(), objeto.getDensidad());
 
-            System.out.println(
-                    "Sensor enviando: "
-                    + mensaje
-            );
+            System.out.println("Sensor enviando: " + mensaje);
 
             salida.println(mensaje);
 

@@ -7,12 +7,8 @@ public class CaracteristicasObjeto {
     private final double redondez;
     private final double densidad;
 
-    public CaracteristicasObjeto(
-            double diametro,
-            double peso,
-            double redondez,
-            double densidad
-    ) {
+    public CaracteristicasObjeto(double diametro, double peso, double redondez, double densidad) {
+        
         this.diametro = diametro;
         this.peso = peso;
         this.redondez = redondez;
@@ -42,10 +38,8 @@ public class CaracteristicasObjeto {
     public double[] toInputVector() {
 
         return new double[]{
-            diametro / 30.0,
-            peso / 20.0,
-            redondez,
-            densidad
+            
+            diametro / 30.0, peso / 20.0, redondez,  densidad
         };
     }
 

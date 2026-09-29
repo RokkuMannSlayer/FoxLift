@@ -47,17 +47,14 @@ public class InterfazServidor extends JFrame {
 
     public InterfazServidor() {
 
-        simulador =
-                new SimuladorSensor();
+        simulador = new SimuladorSensor();
 
-        registro =
-                new RegistroObjeto();
+        registro = new RegistroObjeto();
 
         /*
          * La red se carga o entrena al iniciar.
          */
-        clasificador =
-                new ClasificadorCanica();
+        clasificador = new ClasificadorCanica();
 
         modoEscapeActivo = false;
 
@@ -236,8 +233,7 @@ public class InterfazServidor extends JFrame {
     // ATENDER CLIENTE
     // =====================================================
 
-    private void atenderCliente(
-            Socket socket) {
+    private void atenderCliente(Socket socket) {
 
         try (BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
@@ -498,8 +494,7 @@ public class InterfazServidor extends JFrame {
     // ACTUALIZAR ESTADO SENSOR
     // =====================================================
 
-    private void actualizarEstadoSensor(
-            String texto) {
+    private void actualizarEstadoSensor(String texto) {
 
         SwingUtilities.invokeLater(() -> {
 
