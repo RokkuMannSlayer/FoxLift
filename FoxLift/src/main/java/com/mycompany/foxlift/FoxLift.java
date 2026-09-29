@@ -8,8 +8,7 @@ public class Foxlift {
 
         SwingUtilities.invokeLater(() -> {
 
-            InterfazServidor servidor =
-                    new InterfazServidor();
+            InterfazServidor servidor = new InterfazServidor();
 
             servidor.setVisible(true);
 

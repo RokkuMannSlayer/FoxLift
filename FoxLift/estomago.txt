@@ -1,3 +1,3 @@
-ID: 1 | Fecha: 17/09/2026 | Hora: 13:13:01 | Distancia: 15,31 cm | Estado: OBJETO DETECTADO
-ID: 2 | Fecha: 17/09/2026 | Hora: 13:13:08 | Distancia: 8,72 cm | Estado: OBJETO DETECTADO
-ID: 3 | Fecha: 17/09/2026 | Hora: 13:13:12 | Distancia: 16,04 cm | Estado: OBJETO DETECTADO
+ID: 1 | Fecha: 28/09/2026 | Hora: 23:31:34 | Distancia: 17.19 cm | Estado: OBJETO DETECTADO | Clasificacion: NO CANICA
+ID: 2 | Fecha: 28/09/2026 | Hora: 23:31:37 | Distancia: 17.48 cm | Estado: OBJETO DETECTADO | Clasificacion: NO CANICA
+ID: 3 | Fecha: 28/09/2026 | Hora: 23:31:38 | Distancia: 15.46 cm | Estado: OBJETO DETECTADO | Clasificacion: CANICA

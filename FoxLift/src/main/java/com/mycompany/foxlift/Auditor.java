@@ -76,10 +76,7 @@ public class Auditor implements Runnable {
                  * Cuando existen 3 registros,
                  * se habilita el Modo Escape.
                  */
-                if (
-                        cantidad >= REGISTROS_ESCAPE
-                        && !escapeInformado
-                ) {
+                if (cantidad >= REGISTROS_ESCAPE && !escapeInformado) {
 
                     escapeInformado = true;
 

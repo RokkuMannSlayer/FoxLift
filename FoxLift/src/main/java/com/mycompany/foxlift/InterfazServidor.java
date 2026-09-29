@@ -7,45 +7,29 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Locale;
 
 public class InterfazServidor extends JFrame {
 
-    // ==========================================
-    // CONFIGURACIÓN
-    // ==========================================
-
     private static final int PUERTO = 5000;
 
-    private static final double LIMITE_DETECCION = 20.0;
-
-    // ==========================================
-    // SERVIDOR
-    // ==========================================
+    private final SimuladorSensor simulador;
+    private final RegistroObjeto registro;
+    private final ClasificadorCanica clasificador;
 
     private ServerSocket servidorSocket;
 
-    private Socket clienteSocket;
+    private volatile boolean servidorActivo;
 
-    private Thread hiloServidor;
+    private boolean modoEscapeActivo;
 
-    // ==========================================
-    // OBJETOS
-    // ==========================================
-
-    private final SimuladorSensor simulador;
-
-    private final RegistroObjeto registro;
-
-    // ==========================================
-    // COMPONENTES
-    // ==========================================
+    // =====================================================
+    // COMPONENTES DE INTERFAZ
+    // =====================================================
 
     private JLabel lblEstadoServidor;
-
     private JLabel lblEstadoSensor;
-
     private JLabel lblDistancia;
-
     private JLabel lblTotal;
 
     private JTable tablaObjetos;
@@ -55,24 +39,27 @@ public class InterfazServidor extends JFrame {
     private JTextArea areaLog;
 
     private JButton btnSimular;
-
     private JButton btnLimpiar;
 
-    // ==========================================
-    // ESTADO DEL MODO ESCAPE
-    // ==========================================
-
-    private boolean modoEscapeActivo = false;
-
-    // ==========================================
+    // =====================================================
     // CONSTRUCTOR
-    // ==========================================
+    // =====================================================
 
     public InterfazServidor() {
 
-        simulador = new SimuladorSensor();
+        simulador =
+                new SimuladorSensor();
 
-        registro = new RegistroObjeto();
+        registro =
+                new RegistroObjeto();
+
+        /*
+         * La red se carga o entrena al iniciar.
+         */
+        clasificador =
+                new ClasificadorCanica();
+
+        modoEscapeActivo = false;
 
         configurarVentana();
 
@@ -81,13 +68,13 @@ public class InterfazServidor extends JFrame {
         actualizarCantidadDesdeArchivo();
     }
 
-    // ==========================================
+    // =====================================================
     // CONFIGURAR VENTANA
-    // ==========================================
+    // =====================================================
 
     private void configurarVentana() {
 
-        setTitle("FoxLift - Servidor");
+        setTitle("FoxLift - Servidor Orquita");
 
         setSize(900, 650);
 
@@ -98,27 +85,25 @@ public class InterfazServidor extends JFrame {
         setLayout(new BorderLayout(10, 10));
     }
 
-    // ==========================================
+    // =====================================================
     // CREAR INTERFAZ
-    // ==========================================
+    // =====================================================
 
     private void crearInterfaz() {
 
-        // --------------------------------------
+        // -------------------------------------------------
         // PANEL SUPERIOR
-        // --------------------------------------
+        // -------------------------------------------------
 
-        JPanel panelSuperior = new JPanel(new GridLayout(2, 2, 10, 10));
+        JPanel panelSuperior = new JPanel(new GridLayout(2, 2, 10, 5));
 
-        panelSuperior.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10));
+        lblEstadoServidor = new JLabel("Servidor: detenido");
 
-        lblEstadoServidor = new JLabel("Servidor: INICIANDO...");
-
-        lblEstadoSensor = new JLabel("Sensor: ESPERANDO");
+        lblEstadoSensor = new JLabel("Sensor: esperando");
 
         lblDistancia = new JLabel("Distancia: -- cm");
 
-        lblTotal = new JLabel("Registros en estómago: 0");
+        lblTotal = new JLabel("Registros: 0");
 
         panelSuperior.add(lblEstadoServidor);
 
@@ -130,14 +115,14 @@ public class InterfazServidor extends JFrame {
 
         add(panelSuperior, BorderLayout.NORTH);
 
-        // --------------------------------------
+        // -------------------------------------------------
         // TABLA
-        // --------------------------------------
+        // -------------------------------------------------
 
-        modeloTabla = new DefaultTableModel(new Object[]{"ID", "Fecha", "Hora", "Distancia", "Estado"}, 0) {
+        modeloTabla = new DefaultTableModel(new Object[]{"ID", "Fecha", "Hora", "Distancia", "Clasificación"}, 0) {
 
             @Override
-            public boolean isCellEditable(int row, int column) {
+            public boolean isCellEditable(int row,int column) {
 
                 return false;
             }
@@ -149,136 +134,110 @@ public class InterfazServidor extends JFrame {
 
         add(scrollTabla, BorderLayout.CENTER);
 
-        // --------------------------------------
-        // BOTONES
-        // --------------------------------------
+        // -------------------------------------------------
+        // LOG
+        // -------------------------------------------------
 
-        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        areaLog = new JTextArea();
+
+        areaLog.setEditable(false);
+
+        areaLog.setRows(8);
+
+        JScrollPane scrollLog = new JScrollPane(areaLog);
+
+        // -------------------------------------------------
+        // BOTONES
+        // -------------------------------------------------
 
         btnSimular = new JButton("Simular detección");
 
         btnLimpiar = new JButton("Limpiar tabla");
 
-        panelBotones.add(btnSimular);
-
-        panelBotones.add(btnLimpiar);
-
-        // --------------------------------------
-        // LOG
-        // --------------------------------------
-
-        areaLog = new JTextArea(8, 50);
-
-        areaLog.setEditable(false);
-
-        areaLog.setLineWrap(true);
-
-        areaLog.setWrapStyleWord(true);
-
-        JScrollPane scrollLog = new JScrollPane(areaLog);
-
-        JPanel panelInferior = new JPanel(new BorderLayout());
-
-        panelInferior.add(panelBotones, BorderLayout.NORTH);
-
-        panelInferior.add(scrollLog, BorderLayout.CENTER);
-
-        panelInferior.setBorder(BorderFactory.createTitledBorder("Registro del servidor"));
-
-        add(panelInferior, BorderLayout.SOUTH);
-
-        // --------------------------------------
-        // BOTÓN SIMULAR
-        // --------------------------------------
-
         btnSimular.addActionListener(e -> {
 
-            Thread hiloSimulacion = new Thread(() -> {
+            agregarLog("Solicitando medición al sensor...");
 
-                simulador.enviarMedicion();
-            });
-
-            hiloSimulacion.start();
+            simulador.enviarMedicion();
         });
-
-        // --------------------------------------
-        // BOTÓN LIMPIAR
-        // --------------------------------------
 
         btnLimpiar.addActionListener(e -> {
 
             modeloTabla.setRowCount(0);
 
-            agregarLog("Tabla visual limpiada.");
-
-            agregarLog("El archivo estomago.txt NO fue eliminado.");
+            agregarLog("Tabla limpiada.");
         });
+
+        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER));
+
+        panelBotones.add(btnSimular);
+
+        panelBotones.add(btnLimpiar);
+
+        JPanel panelSur = new JPanel(new BorderLayout());
+
+        panelSur.add(scrollLog, BorderLayout.CENTER);
+
+        panelSur.add(panelBotones, BorderLayout.SOUTH);
+
+        add(panelSur, BorderLayout.SOUTH);
     }
 
-    // ==========================================
+    // =====================================================
     // INICIAR SERVIDOR
-    // ==========================================
+    // =====================================================
 
     public void iniciarServidor() {
 
-        hiloServidor = new Thread(() -> {
+        if (servidorActivo) {
+            return;
+        }
 
-            try {
+        servidorActivo = true;
 
-                servidorSocket = new ServerSocket(PUERTO);
-
-                SwingUtilities.invokeLater(() -> {
-
-                    lblEstadoServidor.setText("Servidor: ACTIVO - Puerto " + PUERTO);
-                });
-
-                agregarLog("Servidor iniciado correctamente.");
-
-                agregarLog("Esperando conexión del simulador...");
-
-                while (!Thread.currentThread().isInterrupted()) {
-
-                    try {
-
-                        clienteSocket = servidorSocket.accept();
-
-                        agregarLog("Simulador conectado: " + clienteSocket.getInetAddress().getHostAddress());
-
-                        SwingUtilities.invokeLater(() -> {
-
-                            lblEstadoSensor.setText("Sensor: CONECTADO");
-                        });
-
-                        atenderCliente(clienteSocket);
-
-                    } catch (Exception e) {
-
-                        if (servidorSocket != null && !servidorSocket.isClosed()) {
-
-                            agregarLog("Error aceptando conexión: " + e.getMessage());
-                        }
-                    }
-                }
-
-                } catch (Exception e) {
-
-                    agregarLog("ERROR iniciando servidor: " + e.getMessage());
-
-                    SwingUtilities.invokeLater(() -> {
-
-                        lblEstadoServidor.setText("Servidor: ERROR");
-                    });
-                }
-        }, "Servidor-TCP");
+        Thread hiloServidor = new Thread(() -> ejecutarServidor(), "Servidor-TCP");
 
         hiloServidor.start();
     }
 
-    // ==========================================
-    // ATENDER CLIENTE
-    // ==========================================
+    private void ejecutarServidor() {
 
-    private void atenderCliente(Socket socket) {
+        try {
+
+            servidorSocket = new ServerSocket(PUERTO);
+
+            agregarLog("Servidor TCP iniciado.");
+
+            agregarLog("Puerto: " + PUERTO);
+
+            actualizarEstadoServidor("Servidor: activo");
+
+            while (servidorActivo) {
+
+                Socket socket = servidorSocket.accept();
+
+                agregarLog("Sensor conectado: " + socket.getInetAddress());
+
+                Thread hiloCliente = new Thread(() -> atenderCliente(socket), "Cliente-Sensor");
+
+                hiloCliente.start();
+            }
+
+        } catch (Exception e) {
+
+            if (servidorActivo) {
+
+                agregarLog("Error del servidor: " + e.getMessage());
+            }
+        }
+    }
+
+    // =====================================================
+    // ATENDER CLIENTE
+    // =====================================================
+
+    private void atenderCliente(
+            Socket socket) {
 
         try (BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
@@ -286,43 +245,34 @@ public class InterfazServidor extends JFrame {
 
             while ((mensaje = entrada.readLine())!= null) {
 
-                agregarLog("Mensaje recibido: " + mensaje);
-
                 procesarMedicion(mensaje);
             }
 
         } catch (Exception e) {
 
-            agregarLog("Error con el cliente: " + e.getMessage());
+            agregarLog("Error atendiendo sensor: "+ e.getMessage());
 
         } finally {
 
             try {
-
                 socket.close();
-
             } catch (Exception ignored) {
             }
 
-            SwingUtilities.invokeLater(() -> {
+            agregarLog("Sensor desconectado.");
 
-                lblEstadoSensor.setText("Sensor: ESPERANDO");
-            });
-
-            agregarLog("Simulador desconectado.");
+            actualizarEstadoSensor("Sensor: desconectado");
         }
     }
 
-    // ==========================================
+    // =====================================================
     // PROCESAR MEDICIÓN
-    // ==========================================
+    // =====================================================
 
     private void procesarMedicion(
-            String mensaje
-    ) {
+            String mensaje) {
 
         if (mensaje == null) {
-
             return;
         }
 
@@ -335,74 +285,118 @@ public class InterfazServidor extends JFrame {
 
         try {
 
-            String textoDistancia = mensaje.substring("DISTANCIA:".length());
+            /*
+             * Formato:
+             *
+             * DISTANCIA:13.72;
+             * DIAMETRO:18.42;
+             * PESO:5.37;
+             * REDONDEZ:0.981;
+             * DENSIDAD:0.947
+             */
 
-            agregarLog("Texto recibido: [" + textoDistancia + "]");
+            String[] partes = mensaje.split(";");
 
-            double distancia = Double.parseDouble(textoDistancia);
+            if (partes.length < 5) {
 
-            SwingUtilities.invokeLater(() -> {
+                throw new Exception("Mensaje incompleto.");
+            }
 
-                lblDistancia.setText(String.format("Distancia: %.2f cm", distancia));
-            });
+            double distancia = Double.parseDouble(partes[0].split(":")[1]);
 
-            agregarLog(String.format("Medición recibida: %.2f cm", distancia));
+            double diametro = Double.parseDouble(partes[1].split(":")[1]);
 
-            // ----------------------------------
-            // COMPROBAR DETECCIÓN
-            // ----------------------------------
+            double peso = Double.parseDouble(partes[2].split(":")[1]);
+
+            double redondez = Double.parseDouble(partes[3].split(":")[1]);
+
+            double densidad = Double.parseDouble(partes[4].split(":")[1]);
+
+            actualizarDistancia(distancia);
+
+            actualizarEstadoSensor("Sensor: medición recibida");
+
+            agregarLog(String.format(Locale.US, "Medición recibida: %.2f cm", distancia));
+
+            // -------------------------------------------------
+            // DETECCIÓN
+            // -------------------------------------------------
 
             if (sensorHayObjeto(distancia)) {
 
-                agregarLog("DISTANCIA DENTRO DEL RANGO DE DETECCIÓN.");
+                agregarLog("DISTANCIA DENTRO DEL RANGO " + "DE DETECCIÓN.");
 
-                registrarObjeto(distancia);
+                // -------------------------------------------------
+                // CARACTERÍSTICAS
+                // -------------------------------------------------
+
+                CaracteristicasObjeto objeto = new CaracteristicasObjeto(diametro, peso, redondez, densidad);
+
+                agregarLog("Características del objeto:");
+
+                agregarLog(objeto.toString());
+
+                // -------------------------------------------------
+                // RED NEURONAL
+                // -------------------------------------------------
+
+                String clasificacion = clasificador.clasificar(objeto);
+
+                double[] salida = clasificador.obtenerSalida(objeto);
+
+                agregarLog("RED NEURONAL:");
+
+                agregarLog(String.format(Locale.US, "CANICA: %.4f", salida[0]));
+
+                agregarLog(String.format(Locale.US, "NO CANICA: %.4f", salida[1]));
+
+                agregarLog("CLASIFICACIÓN: " + clasificacion);
+
+                // -------------------------------------------------
+                // GUARDAR CAPTURA
+                // -------------------------------------------------
+
+                registrarObjeto(distancia, clasificacion);
 
             } else {
 
                 agregarLog("No se detectó ningún objeto.");
             }
 
-        } catch (NumberFormatException e) {
+        } catch (Exception e) {
 
-            agregarLog("ERROR: No se pudo convertir la distancia.");
-
-            agregarLog("Mensaje recibido: [" + mensaje + "]");
+            agregarLog("ERROR procesando medición: " + e.getMessage());
         }
     }
 
-    // ==========================================
-    // DETECCIÓN
-    // ==========================================
+    // =====================================================
+    // DETECTAR OBJETO
+    // =====================================================
 
-    private boolean sensorHayObjeto(
-            double distancia
-    ) {
+    private boolean sensorHayObjeto(double distancia) {
 
-        return distancia <= LIMITE_DETECCION;
+        return distancia <= simulador.getDistanciaDeteccion();
     }
 
-    // ==========================================
+    // =====================================================
     // REGISTRAR OBJETO
-    // ==========================================
+    // =====================================================
 
-    private void registrarObjeto(double distancia) {
+    private void registrarObjeto(double distancia, String clasificacion) {
 
         try {
 
             agregarLog("OBJETO DETECTADO.");
 
-            /*
-             * RegistroObjeto se encarga de
-             * proteger la escritura del archivo.
-             */
-            int id = registro.guardarObjeto(distancia);
+            int id = registro.guardarObjeto(distancia, clasificacion);
 
             agregarLog("ID asignado: " + id);
 
-            agregarLog("Captura guardada en estomago.txt.");
+            agregarLog("Clasificación neuronal: " + clasificacion);
 
-            agregarFila(id, distancia);
+            agregarLog("Captura guardada en " + "estomago.txt.");
+
+            agregarFila(id, distancia, clasificacion);
 
             actualizarCantidadDesdeArchivo();
 
@@ -412,30 +406,11 @@ public class InterfazServidor extends JFrame {
         }
     }
 
-    // ==========================================
-    // ACTUALIZAR CANTIDAD DESDE ARCHIVO
-    // ==========================================
-
-    private void actualizarCantidadDesdeArchivo() {
-
-        Thread hiloConsulta = new Thread(() -> {
-
-            int cantidad = registro.contarRegistros();
-
-            SwingUtilities.invokeLater(() -> {
-
-                lblTotal.setText("Registros en estómago: " + cantidad);
-            });
-        }, "Consulta-Estomago");
-
-        hiloConsulta.start();
-    }
-
-    // ==========================================
+    // =====================================================
     // AGREGAR FILA
-    // ==========================================
+    // =====================================================
 
-    private void agregarFila(int id, double distancia) {
+    private void agregarFila(int id, double distancia, String clasificacion) {
 
         String fecha = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
@@ -443,91 +418,124 @@ public class InterfazServidor extends JFrame {
 
         SwingUtilities.invokeLater(() -> {
 
-            modeloTabla.addRow(new Object[]{id, fecha, hora, String.format("%.2f cm",distancia),"OBJETO DETECTADO"});
+            modeloTabla.addRow(new Object[]{
+                id,
+                fecha,
+                hora,
+                String.format(Locale.US, "%.2f cm", distancia),
+                clasificacion
+            });
         });
     }
 
-    // ==========================================
-    // MODO ESCAPE
-    // ==========================================
+    // =====================================================
+    // ACTUALIZAR CANTIDAD
+    // =====================================================
 
-    /**
-     * Este método es llamado por el Auditor.
-     *
-     * La interfaz NO decide cuándo hay 3 registros.
-     * El Auditor consulta estomago.txt y comunica
-     * que puede activarse el Modo Escape.
-     */
-    public void modoEscape() {
+    private void actualizarCantidadDesdeArchivo() {
 
-        if (modoEscapeActivo) {
-
-            return;
-        }
-
-        modoEscapeActivo = true;
-
-        agregarLog("================================");
-
-        agregarLog("AUDITOR: Se encontraron 3 registros válidos.");
-
-        agregarLog("AUDITOR: PUEDE ACTIVARSE EL MODO ESCAPE.");
-
-        agregarLog("================================");
+        int cantidad = registro.contarRegistros();
 
         SwingUtilities.invokeLater(() -> {
 
-            JOptionPane.showMessageDialog(this, "¡ATENCIÓN!\n\n" + "El Auditor detectó 3 registros " + "válidos en estomago.txt.\n\n" + "PUEDE ACTIVARSE EL MODO ESCAPE.", "MODO ESCAPE", JOptionPane.WARNING_MESSAGE);
+            lblTotal.setText("Registros: " + cantidad);
         });
     }
 
-    // ==========================================
+    // =====================================================
+    // MODO ESCAPE
+    // =====================================================
+
+    public void modoEscape() {
+
+        SwingUtilities.invokeLater(() -> {
+
+            if (modoEscapeActivo) {
+                return;
+            }
+
+            modoEscapeActivo = true;
+
+            agregarLog("================================");
+
+            agregarLog("MODO ESCAPE DISPONIBLE");
+
+            agregarLog("El Auditor detectó " + "3 registros válidos.");
+
+            agregarLog("================================");
+
+            JOptionPane.showMessageDialog(this, "¡ATENCIÓN!\n\n" + "El Auditor detectó " + "3 registros válidos " + "en estomago.txt.\n\n" + "PUEDE ACTIVARSE EL " + "MODO ESCAPE.", "Modo Escape", JOptionPane.WARNING_MESSAGE);
+        });
+    }
+
+    // =====================================================
     // LOG
-    // ==========================================
+    // =====================================================
 
     public void agregarLog(String mensaje) {
 
         SwingUtilities.invokeLater(() -> {
 
-                    areaLog.append(mensaje + System.lineSeparator());
+            areaLog.append(mensaje + "\n");
 
-                    areaLog.setCaretPosition(areaLog.getDocument().getLength());
-                }
-        );
+            areaLog.setCaretPosition(areaLog.getDocument().getLength());
+        });
     }
 
-    // ==========================================
+    // =====================================================
+    // ACTUALIZAR ESTADO SERVIDOR
+    // =====================================================
+
+    private void actualizarEstadoServidor(String texto) {
+
+        SwingUtilities.invokeLater(() -> {
+
+            lblEstadoServidor.setText(texto);
+        });
+    }
+
+    // =====================================================
+    // ACTUALIZAR ESTADO SENSOR
+    // =====================================================
+
+    private void actualizarEstadoSensor(
+            String texto) {
+
+        SwingUtilities.invokeLater(() -> {
+
+            lblEstadoSensor.setText(texto);
+        });
+    }
+
+    // =====================================================
+    // ACTUALIZAR DISTANCIA
+    // =====================================================
+
+    private void actualizarDistancia(double distancia) {
+
+        SwingUtilities.invokeLater(() -> {
+
+            lblDistancia.setText(String.format(Locale.US, "Distancia: %.2f cm", distancia));
+        });
+    }
+
+    // =====================================================
     // CERRAR SERVIDOR
-    // ==========================================
+    // =====================================================
 
-    @Override
-    public void dispose() {
+    public void detenerServidor() {
 
-        try {
-
-            if (clienteSocket != null && !clienteSocket.isClosed()) {
-
-                clienteSocket.close();
-            }
-
-        } catch (Exception ignored) {
-        }
+        servidorActivo = false;
 
         try {
 
-            if (servidorSocket != null && !servidorSocket.isClosed()) {
-
+            if (servidorSocket != null) {
                 servidorSocket.close();
             }
 
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+
+            agregarLog("Error cerrando servidor: " + e.getMessage());
         }
-
-        if (hiloServidor != null) {
-
-            hiloServidor.interrupt();
-        }
-
-        super.dispose();
     }
 }

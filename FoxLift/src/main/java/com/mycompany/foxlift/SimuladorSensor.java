@@ -8,7 +8,6 @@ import java.util.Random;
 public class SimuladorSensor {
 
     private static final String HOST = "localhost";
-
     private static final int PUERTO = 5000;
 
     private static final double DISTANCIA_DETECCION = 20.0;
@@ -16,27 +15,98 @@ public class SimuladorSensor {
     private final Random random;
 
     public SimuladorSensor() {
-
         random = new Random();
     }
 
     /**
-     * Simula una medición del sensor.
-     *
-     * Algunas mediciones están dentro del rango
-     * de detección y otras fuera.
+     * Simula la distancia medida por el sensor.
      */
     public double medirDistancia() {
 
+        /*
+         * 60% de las veces:
+         * objeto dentro del rango.
+         *
+         * 40%:
+         * objeto fuera del rango.
+         */
+
         if (random.nextDouble() < 0.60) {
 
-            // Entre 5 y 20 cm
-            return 5.0 + random.nextDouble() * 15.0;
+            return 5.0
+                    + random.nextDouble() * 15.0;
 
         } else {
 
-            // Entre 21 y 100 cm
-            return 21.0 + random.nextDouble() * 79.0;
+            return 21.0
+                    + random.nextDouble() * 79.0;
+        }
+    }
+
+    /**
+     * Genera las características físicas
+     * del objeto detectado.
+     */
+    public CaracteristicasObjeto generarCaracteristicasObjeto() {
+
+        /*
+         * 60% de las veces simulamos una CANICA.
+         */
+
+        if (random.nextDouble() < 0.60) {
+
+            double diametro =
+                    14.0
+                    + random.nextDouble() * 10.0;
+
+            double peso =
+                    3.0
+                    + random.nextDouble() * 5.0;
+
+            double redondez =
+                    0.92
+                    + random.nextDouble() * 0.08;
+
+            double densidad =
+                    0.90
+                    + random.nextDouble() * 0.10;
+
+            return new CaracteristicasObjeto(
+                    diametro,
+                    peso,
+                    redondez,
+                    densidad
+            );
+
+        } else {
+
+            /*
+             * Objeto que no debería ser
+             * clasificado como canica.
+             */
+
+            double diametro =
+                    5.0
+                    + random.nextDouble() * 25.0;
+
+            double peso =
+                    1.0
+                    + random.nextDouble() * 18.0;
+
+            double redondez =
+                    0.40
+                    + random.nextDouble() * 0.45;
+
+            double densidad =
+                    0.20
+                    + random.nextDouble() * 0.65;
+
+            return new CaracteristicasObjeto(
+                    diametro,
+                    peso,
+                    redondez,
+                    densidad
+            );
         }
     }
 
@@ -45,22 +115,29 @@ public class SimuladorSensor {
      */
     public void enviarMedicion() {
 
-        double distancia = medirDistancia();
+        double distancia =
+                medirDistancia();
 
-        try (Socket socket = new Socket(HOST, PUERTO); PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)) {
+        CaracteristicasObjeto objeto =
+                generarCaracteristicasObjeto();
 
-            /*
-             * Locale.US obliga a utilizar punto decimal.
-             *
-             * Correcto:
-             * DISTANCIA:13.72
-             *
-             * Incorrecto:
-             * DISTANCIA:13,72
-             */
-            String mensaje = String.format(Locale.US, "DISTANCIA:%.2f", distancia);
+        try (
+                Socket socket =
+                        new Socket(HOST, PUERTO);
 
-            System.out.println("Sensor enviando: " + mensaje);
+                PrintWriter salida =
+                        new PrintWriter(
+                                socket.getOutputStream(),
+                                true
+                        )
+        ) {
+
+            String mensaje = String.format(Locale.US, "DISTANCIA:%.2f;" + "DIAMETRO:%.2f;" + "PESO:%.2f;" + "REDONDEZ:%.3f;" + "DENSIDAD:%.3f", distancia, objeto.getDiametro(), objeto.getPeso(), objeto.getRedondez(), objeto.getDensidad());
+
+            System.out.println(
+                    "Sensor enviando: "
+                    + mensaje
+            );
 
             salida.println(mensaje);
 
@@ -71,7 +148,6 @@ public class SimuladorSensor {
     }
 
     public double getDistanciaDeteccion() {
-
         return DISTANCIA_DETECCION;
     }
 }

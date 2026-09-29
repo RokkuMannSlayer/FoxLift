@@ -8,108 +8,116 @@ import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 public class RegistroObjeto {
 
-    /**
-     * Archivo persistente que representa
-     * el "estómago" de la Orquita.
-     */
     private static final String ARCHIVO = "estomago.txt";
 
-    /**
-     * Registra una captura en estomago.txt.
+    /*
+     * UN ÚNICO LOCK PARA TODO EL ARCHIVO.
      *
-     * El método es synchronized porque el archivo
-     * es un recurso compartido entre diferentes hilos.
+     * De esta forma, aunque existan varios objetos
+     * RegistroObjeto, todos utilizan el mismo mecanismo
+     * de sincronización.
      */
-    public synchronized int guardarObjeto(double distancia) throws Exception {
-
-        int id = obtenerSiguienteId();
-
-        LocalDate fecha = LocalDate.now();
-
-        LocalTime hora = LocalTime.now();
-
-        DateTimeFormatter formatoFecha = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-
-        DateTimeFormatter formatoHora = DateTimeFormatter.ofPattern("HH:mm:ss");
-
-        String fechaTexto =
-                fecha.format(
-                        formatoFecha
-                );
-
-        String horaTexto = hora.format(formatoHora);
-
-        /*
-         * SECCIÓN CRÍTICA:
-         *
-         * La escritura sobre estomago.txt
-         * está protegida por synchronized.
-         */
-        try (FileWriter fw = new FileWriter(ARCHIVO, true); PrintWriter pw = new PrintWriter(fw)) {
-
-            pw.printf("ID: %d | Fecha: %s | Hora: %s | Distancia: %.2f cm | Estado: OBJETO DETECTADO%n", id, fechaTexto, horaTexto, distancia);
-        }
-
-        return id;
-    }
+    private static final Object LOCK_ESTOMAGO = new Object();
 
     /**
-     * Cuenta los registros válidos de captura
-     * existentes actualmente en estomago.txt.
-     *
-     * También está synchronized porque el Auditor
-     * puede consultar mientras otro hilo escribe.
+     * Guarda una captura en estomago.txt.
      */
-    public synchronized int contarRegistros() {
+    public int guardarObjeto(double distancia, String clasificacion) throws Exception {
 
-        File archivo = new File(ARCHIVO);
+        synchronized (LOCK_ESTOMAGO) {
 
-        if (!archivo.exists()) {
+            /*
+             * El ID se obtiene dentro de la sección crítica.
+             * Esto evita IDs repetidos cuando dos hilos
+             * intentan guardar al mismo tiempo.
+             */
+            int id = obtenerSiguienteId();
 
-            return 0;
-        }
+            LocalDate fecha = LocalDate.now();
 
-        int cantidad = 0;
+            LocalTime hora = LocalTime.now();
 
-        try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
+            DateTimeFormatter formatoFecha = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-            String linea;
+            DateTimeFormatter formatoHora = DateTimeFormatter.ofPattern("HH:mm:ss");
 
-            while ((linea = br.readLine()) != null) {
+            String fechaTexto = fecha.format(formatoFecha);
 
-                /*
-                 * Consideramos válido un registro
-                 * que contenga estos elementos.
-                 */
-                if (linea.startsWith("ID:") && linea.contains("Distancia:") && linea.contains("Estado: OBJETO DETECTADO")) {
+            String horaTexto = hora.format(formatoHora);
 
-                    cantidad++;
-                }
+            try (FileWriter fw = new FileWriter(ARCHIVO, true); PrintWriter pw = new PrintWriter(fw)) {
+
+                pw.printf(Locale.US, "ID: %d | Fecha: %s | Hora: %s | " + "Distancia: %.2f cm | " + "Estado: OBJETO DETECTADO | " + "Clasificacion: %s%n", id, fechaTexto, horaTexto, distancia, clasificacion);
             }
 
-        } catch (Exception e) {
-
-            System.out.println("Error consultando " + ARCHIVO + ": " + e.getMessage());
+            return id;
         }
-
-        return cantidad;
     }
 
     /**
-     * Obtiene el siguiente ID.
+     * Cuenta las capturas válidas almacenadas.
+     */
+    public int contarRegistros() {
+
+        synchronized (LOCK_ESTOMAGO) {
+
+            File archivo = new File(ARCHIVO);
+
+            if (!archivo.exists()) {
+                return 0;
+            }
+
+            int cantidad = 0;
+
+            try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
+
+                String linea;
+
+                while ((linea = br.readLine())!= null) {
+
+                    if (esRegistroValido(linea)) {
+                        cantidad++;
+                    }
+                }
+
+            } catch (Exception e) {
+
+                System.out.println("Error consultando " + ARCHIVO + ": " + e.getMessage());
+            }
+
+            return cantidad;
+        }
+    }
+
+    /**
+     * Determina si una línea representa
+     * una captura válida.
+     */
+    private boolean esRegistroValido(
+            String linea) {
+
+        if (linea == null) {
+            return false;
+        }
+
+        return linea.startsWith("ID:") && linea.contains("Fecha:") && linea.contains("Hora:") && linea.contains("Distancia:") && linea.contains("Estado: OBJETO DETECTADO") && linea.contains("Clasificacion:");
+    }
+
+    /**
+     * Obtiene el próximo ID disponible.
      *
-     * Este método es llamado desde métodos
-     * synchronized de esta misma clase.
+     * Este método debe ejecutarse dentro
+     * de LOCK_ESTOMAGO.
      */
     private int obtenerSiguienteId() {
 
         File archivo = new File(ARCHIVO);
 
         if (!archivo.exists()) {
-
             return 1;
         }
 
@@ -119,7 +127,7 @@ public class RegistroObjeto {
 
             String linea;
 
-            while ((linea = br.readLine())!= null) {
+            while ((linea = br.readLine()) != null) {
 
                 if (linea.startsWith("ID:")) {
 
@@ -130,7 +138,6 @@ public class RegistroObjeto {
                         int id = Integer.parseInt(parteId);
 
                         if (id > maxId) {
-
                             maxId = id;
                         }
 
