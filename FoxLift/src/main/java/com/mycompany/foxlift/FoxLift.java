@@ -19,6 +19,9 @@ public class Foxlift {
             Auditor auditor =   new Auditor(servidor);
 
             auditor.iniciar();
+            
+            LectorBluetooth lector = new LectorBluetooth();
+            lector.iniciar("COM5"); // Reemplazar por el COM real
         });
     }
 }

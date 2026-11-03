@@ -15,10 +15,7 @@ public class LectorBluetooth {
         puerto.setNumDataBits(8);
         puerto.setNumStopBits(SerialPort.ONE_STOP_BIT);
         puerto.setParity(SerialPort.NO_PARITY);
-        puerto.setComPortTimeouts(
-            SerialPort.TIMEOUT_READ_SEMI_BLOCKING,
-            0, 0
-        );
+        puerto.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 0, 0 );
 
         if (!puerto.openPort()) {
             System.out.println(
