@@ -8,6 +8,7 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Locale;
+import java.util.List;
 
 public class InterfazServidor extends JFrame {
 
@@ -40,6 +41,19 @@ public class InterfazServidor extends JFrame {
 
     private JButton btnSimular;
     private JButton btnLimpiar;
+    
+    private JComboBox<String> comboPuertosBluetooth;
+
+    private JButton btnBuscarBluetooth;
+    private JButton btnConectarBluetooth;
+    private JButton btnDesconectarBluetooth;
+
+    private JButton btnEncenderArduino;
+    private JButton btnApagarArduino;
+
+    private JLabel lblEstadoBluetooth;
+
+    private final LectorBluetooth lectorBluetooth = new LectorBluetooth();
 
     // =====================================================
     // CONSTRUCTOR
@@ -64,6 +78,72 @@ public class InterfazServidor extends JFrame {
 
         actualizarCantidadDesdeArchivo();
     }
+    
+    private JPanel crearPanelBluetooth() {
+
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
+
+        panel.setBorder(BorderFactory.createTitledBorder("Control Bluetooth - Arduino"));
+
+        comboPuertosBluetooth = new JComboBox<>();
+
+        btnBuscarBluetooth = new JButton("Buscar puertos");
+        btnConectarBluetooth = new JButton("Conectar");
+        btnDesconectarBluetooth = new JButton("Desconectar");
+
+        btnEncenderArduino = new JButton("Encender modo autónomo");
+        btnApagarArduino = new JButton("Apagar modo autónomo");
+
+        lblEstadoBluetooth = new JLabel("Bluetooth: desconectado");
+
+        btnBuscarBluetooth.addActionListener(e -> buscarPuertosBluetooth());
+
+        btnConectarBluetooth.addActionListener(e -> conectarBluetooth());
+
+        btnDesconectarBluetooth.addActionListener(e -> desconectarBluetooth());
+
+        btnEncenderArduino.addActionListener(e -> {
+
+            if (lectorBluetooth.enviar("A")) {
+
+                agregarLog("Comando A enviado al Arduino.");
+
+            } else {
+
+                agregarLog("Error enviando comando A.");
+            }
+        });
+
+        btnApagarArduino.addActionListener(e -> {
+
+            if (lectorBluetooth.enviar("M")) {
+
+                agregarLog("Comando M enviado al Arduino.");
+
+            } else {
+
+                agregarLog("Error enviando comando M.");
+            }
+        });
+
+        panel.add(new JLabel("Puerto:"));
+        panel.add(comboPuertosBluetooth);
+        panel.add(btnBuscarBluetooth);
+        panel.add(btnConectarBluetooth);
+        panel.add(btnDesconectarBluetooth);
+
+        panel.add(btnEncenderArduino);
+        panel.add(btnApagarArduino);
+        panel.add(lblEstadoBluetooth);
+
+        btnDesconectarBluetooth.setEnabled(false);
+        btnEncenderArduino.setEnabled(false);
+        btnApagarArduino.setEnabled(false);
+
+        buscarPuertosBluetooth();
+
+        return panel;
+    }
 
     // =====================================================
     // CONFIGURAR VENTANA
@@ -85,6 +165,160 @@ public class InterfazServidor extends JFrame {
     // =====================================================
     // CREAR INTERFAZ
     // =====================================================
+    
+    private void buscarPuertosBluetooth() {
+
+        comboPuertosBluetooth.removeAllItems();
+
+        List<String> puertos = LectorBluetooth.detectarPuertos();
+
+        for (String puerto : puertos) {
+            comboPuertosBluetooth.addItem(puerto);
+        }
+
+        if (puertos.isEmpty()) {
+            agregarLog("No se encontraron puertos COM.");
+        } else {
+            agregarLog("Puertos seriales encontrados: " + puertos.size());
+        }
+    }
+
+    private void conectarBluetooth() {
+
+        String seleccionado = (String) comboPuertosBluetooth.getSelectedItem();
+
+        if (seleccionado == null) {
+            agregarLog("Seleccioná un puerto Bluetooth.");
+        return;
+        }
+
+        // El elemento tiene el formato: COM6 - Nombre del dispositivo.
+        String nombrePuerto = seleccionado.split(" - ")[0].trim();
+
+        boolean resultado = lectorBluetooth.iniciar(nombrePuerto, mensaje -> {
+
+            agregarLog("BLUETOOTH RECIBIDO: [" + mensaje + "]");
+
+            if (mensaje.equals("MODO_AUTONOMO:ACTIVADO")) {
+
+                SwingUtilities.invokeLater(() -> {
+                    lblEstadoBluetooth.setText(
+                        "Arduino: modo autónomo ACTIVADO"
+                    );
+                });
+
+            } else if (mensaje.equals("MODO_AUTONOMO:DESACTIVADO")) {
+
+                SwingUtilities.invokeLater(() -> {
+                    lblEstadoBluetooth.setText("Arduino: modo autónomo DESACTIVADO");
+                });
+
+            } else if (mensaje.startsWith("OBJETO:")) {
+
+                procesarLecturaBluetooth(mensaje);
+            }
+        });
+
+        if (resultado) {
+
+            lblEstadoBluetooth.setText("Bluetooth: conectado (" + nombrePuerto + ")");
+
+            btnBuscarBluetooth.setEnabled(false);
+            btnConectarBluetooth.setEnabled(false);
+            btnDesconectarBluetooth.setEnabled(true);
+
+            btnEncenderArduino.setEnabled(true);
+            btnApagarArduino.setEnabled(true);
+
+            agregarLog("Conectado correctamente al Arduino por Bluetooth.");
+
+        } else {
+
+            agregarLog("No se pudo conectar al puerto " + nombrePuerto);
+            JOptionPane.showMessageDialog(
+                this,
+                "No se pudo abrir el puerto Bluetooth.\nVerificá que esté emparejado y que ningún otro programa lo esté utilizando.",
+                "Error Bluetooth",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+    
+    // =====================================================
+// PROCESAR LECTURA DEL SENSOR BLUETOOTH
+// =====================================================
+
+    private void procesarLecturaBluetooth(String mensaje) {
+
+        try {
+
+            String valor = mensaje.substring(
+                "OBJETO:".length()).trim();
+
+            double distancia = Double.parseDouble(valor);
+
+            if (!Double.isFinite(distancia) || distancia < 3.0 || distancia > 20.0) {
+
+                agregarLog("Lectura descartada: fuera de rango.");
+                return;
+        }
+
+        agregarLog("Procesando lectura del HC-SR04...");
+
+            actualizarDistancia(distancia);
+
+            actualizarEstadoSensor("Sensor Bluetooth: objeto detectado" );
+
+            registrarObjeto(distancia, "SIN CLASIFICAR");
+
+        } catch (Exception e) {
+
+            agregarLog("Error procesando lectura Bluetooth: " + e.getMessage());
+        }
+    }
+
+    private void desconectarBluetooth() {
+
+        lectorBluetooth.detener();
+
+        btnBuscarBluetooth.setEnabled(true);
+        btnConectarBluetooth.setEnabled(true);
+        btnDesconectarBluetooth.setEnabled(false);
+
+        btnEncenderArduino.setEnabled(false);
+        btnApagarArduino.setEnabled(false);
+
+        lblEstadoBluetooth.setText("Bluetooth: desconectado");
+
+        agregarLog("Conexión Bluetooth cerrada.");
+    }
+
+    private void enviarComandoArduino(String comando) {
+
+        if (!lectorBluetooth.estaConectado()) {
+            agregarLog("No hay conexión Bluetooth con Arduino.");
+            return;
+        }
+
+        if (lectorBluetooth.enviar(comando)) {
+
+            if ("A".equals(comando)) {
+                agregarLog("Comando enviado: activar modo autónomo.");
+            } else if ("M".equals(comando)) {
+                agregarLog("Comando enviado: desactivar modo autónomo.");
+            }
+
+        } else {
+            agregarLog("No se pudo enviar el comando al Arduino.");
+        }
+    }
+
+    private void actualizarEstadoBluetooth(String texto) {
+
+        SwingUtilities.invokeLater(() -> {
+            lblEstadoBluetooth.setText(texto);
+        });
+    }
 
     private void crearInterfaz() {
 
@@ -172,6 +406,8 @@ public class InterfazServidor extends JFrame {
         panelBotones.add(btnLimpiar);
 
         JPanel panelSur = new JPanel(new BorderLayout());
+
+        panelSur.add(crearPanelBluetooth(), BorderLayout.NORTH);
 
         panelSur.add(scrollLog, BorderLayout.CENTER);
 
@@ -382,15 +618,17 @@ public class InterfazServidor extends JFrame {
 
         try {
 
-            agregarLog("OBJETO DETECTADO.");
+            agregarLog("Registrando lectura del sensor...");
 
             int id = registro.guardarObjeto(distancia, clasificacion);
 
+            agregarLog("Registro guardado correctamente.");
             agregarLog("ID asignado: " + id);
 
-            agregarLog("Clasificación neuronal: " + clasificacion);
+            agregarLog(String.format(Locale.US, "Distancia registrada: %.2f cm", distancia));
 
-            agregarLog("Captura guardada en " + "estomago.txt.");
+            agregarLog("Clasificación: " + clasificacion);
+            agregarLog("Archivo: estomago.txt");
 
             agregarFila(id, distancia, clasificacion);
 
@@ -398,7 +636,7 @@ public class InterfazServidor extends JFrame {
 
         } catch (Exception e) {
 
-            agregarLog("ERROR guardando objeto: " + e.getMessage());
+            agregarLog("ERROR guardando lectura: " + e.getMessage());
         }
     }
 
@@ -521,6 +759,7 @@ public class InterfazServidor extends JFrame {
     public void detenerServidor() {
 
         servidorActivo = false;
+        lectorBluetooth.detener();
 
         try {
 

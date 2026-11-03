@@ -1,3 +1,4 @@
+
 package com.mycompany.foxlift;
 
 import javax.swing.SwingUtilities;
@@ -12,16 +13,12 @@ public class Foxlift {
 
             servidor.setVisible(true);
 
-            // Iniciar servidor TCP
+            // Iniciar servidor TCP.
             servidor.iniciarServidor();
 
-            // Iniciar Auditor de manera independiente
-            Auditor auditor =   new Auditor(servidor);
-
+            // Iniciar Auditor independiente.
+            Auditor auditor = new Auditor(servidor);
             auditor.iniciar();
-            
-            LectorBluetooth lector = new LectorBluetooth();
-            lector.iniciar("COM5"); // Reemplazar por el COM real
         });
     }
 }

@@ -1,3 +1,0 @@
-ID: 1 | Fecha: 17/10/2026 | Hora: 15:33:20 | Distancia: 11.49 cm | Estado: OBJETO DETECTADO | Clasificacion: CANICA
-ID: 2 | Fecha: 27/10/2026 | Hora: 15:27:37 | Distancia: 17.44 cm | Estado: OBJETO DETECTADO | Clasificacion: CANICA
-ID: 3 | Fecha: 27/10/2026 | Hora: 15:27:41 | Distancia: 18.14 cm | Estado: OBJETO DETECTADO | Clasificacion: CANICA
